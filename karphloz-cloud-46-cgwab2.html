@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jamal's Game Hub</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    #main-content { min-height: 60vh; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#" onclick="loadPage('index.html')">Jamal's Game Hub</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav" id="nav-pages">
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div id="main-content" class="shadow rounded bg-white p-4">
+      <div class="text-center text-muted">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    const PAGES = [
+      "index.html",
+      "abtblnk.html",
+      "contact.html",
+      "credits.html",
+      "durlgen.html",
+      "gamesites.html",
+      "gamesiteslinkdrop.html",
+      "media.html",
+      "partners.html",
+      "proxies.html",
+      "proxydrop.html",
+      "proxyinfo.html",
+      "staff.html",
+      "stopwatch.html",
+      "translate.html",
+      "unitconverter.html",
+      "updatelog.html",
+      "viewer.html",
+      "vortex.html"
+    ];
+    const BASE_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      ? (location.origin + '/jamal-files/')
+      : 'https://jamalsgamehubfiletest.pages.dev/';
+
+    function renderNav() {
+      const nav = document.getElementById('nav-pages');
+      nav.innerHTML = PAGES.map(page => {
+        const name = page.replace('.html', '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+        return `<li class="nav-item"><a class="nav-link" href="#" onclick="loadPage('${page}')">${name.charAt(0).toUpperCase() + name.slice(1)}</a></li>`;
+      }).join('');
+    }
+
+    async function loadPage(page) {
+      window.__singlefile_navigating = true;
+      document.getElementById('main-content').innerHTML = '<div class="text-center text-muted">Loading...</div>';
+      let url = BASE_URL + page.replace(/^\//, '');
+      let triedHtml = false;
+      let html = null;
+      let response = null;
+      try {
+        response = await fetch(url, { redirect: 'follow' });
+        if (response.status === 404 && !page.endsWith('.html')) {
+          url = BASE_URL + page.replace(/^\//, '') + '.html';
+          triedHtml = true;
+          response = await fetch(url, { redirect: 'follow' });
+        }
+        if (!response.ok) throw new Error('Failed: ' + response.status + ' (' + url + ')');
+        html = await response.text();
+        const tempDoc = document.implementation.createHTMLDocument('JamalsGameHub');
+        tempDoc.documentElement.innerHTML = html;
+          const pageUrlObj = new URL(url);
+          const basePathForRoot = (new URL(BASE_URL, location.href)).pathname.replace(/\/$/, '');
+
+          Array.from(document.querySelectorAll('.dynamic-css')).forEach(e => e.remove());
+          Array.from(tempDoc.head.querySelectorAll('link')).forEach(link => {
+            const href = link.getAttribute('href');
+            const rel = link.getAttribute('rel') || '';
+            const newLink = document.createElement('link');
+            if (href) {
+              let resolvedHref;
+              try {
+                if (href.startsWith('//')) resolvedHref = pageUrlObj.protocol + href;
+                else if (href.startsWith('/')) resolvedHref = pageUrlObj.origin + basePathForRoot + href;
+                else resolvedHref = new URL(href, url).toString();
+              } catch (e) { resolvedHref = href; }
+              newLink.href = resolvedHref;
+            }
+            if (rel) newLink.rel = rel;
+            if (link.media) newLink.media = link.media;
+            if (link.integrity) newLink.integrity = link.integrity;
+            if (link.crossOrigin) newLink.crossOrigin = link.crossOrigin;
+            newLink.className = 'dynamic-css';
+            document.head.appendChild(newLink);
+          });
+
+          Array.from(tempDoc.head.querySelectorAll('style')).forEach(styleTag => {
+            const newStyle = document.createElement('style');
+            newStyle.className = 'dynamic-css';
+            if (styleTag.textContent) {
+              const rewritten = styleTag.textContent.replace(/url\(['"]?(\/[^'"\)]+)['"]?\)/gi, (m, p) => {
+                try { return `url(${pageUrlObj.origin + basePathForRoot + p})`; } catch (e) { return m; }
+              });
+              newStyle.textContent = rewritten;
+            }
+            document.head.appendChild(newStyle);
+          });
+
+          const main = document.getElementById('main-content');
+          main.innerHTML = '';
+
+          try {
+            const bodyAttrs = tempDoc.body.attributes;
+            Array.from(bodyAttrs).forEach(attr => {
+              if (attr.name === 'class') {
+                document.body.className = attr.value;
+              } else {
+                document.body.setAttribute(attr.name, attr.value);
+              }
+            });
+          } catch (e) { }
+
+          const pageHasFullLayout = !!(tempDoc.querySelector('.page-content') || tempDoc.querySelector('.main-nav') || tempDoc.querySelector('#mainNav') || tempDoc.querySelector('.starfield') || tempDoc.querySelector('.container-inner'));
+          try {
+            const loaderNav = document.querySelector('nav.navbar');
+            const outerContainer = document.querySelector('.container');
+            const mainContentEl = document.getElementById('main-content');
+            if (pageHasFullLayout) {
+              if (loaderNav && !window.__singlefile_loaderNavBackup) {
+                try { window.__singlefile_loaderNavBackup = loaderNav.cloneNode(true); } catch (e) { window.__singlefile_loaderNavBackup = null; }
+              }
+              if (loaderNav && loaderNav.parentNode) loaderNav.parentNode.removeChild(loaderNav);
+
+              try { document.body.style.background = ''; } catch (e) {}
+              if (outerContainer) {
+                outerContainer.style.background = 'transparent';
+                outerContainer.style.boxShadow = 'none';
+                outerContainer.style.borderRadius = '0';
+                outerContainer.style.padding = '0';
+                outerContainer.style.maxWidth = 'none';
+                outerContainer.style.margin = '0 auto';
+              }
+              if (mainContentEl) {
+                mainContentEl.style.background = 'transparent';
+                mainContentEl.style.boxShadow = 'none';
+                mainContentEl.style.borderRadius = '0';
+                mainContentEl.style.padding = '0';
+                mainContentEl.classList.remove('bg-white','shadow','rounded','p-4');
+              }
+              try { Array.from(document.querySelectorAll('.discord-button:not(.dynamic-css)')).forEach(d => d.remove()); } catch (e) {}
+            } else {
+              if (!loaderNav && window.__singlefile_loaderNavBackup) {
+                try {
+                  const header = document.body.firstElementChild;
+                  if (header) header.parentNode.insertBefore(window.__singlefile_loaderNavBackup.cloneNode(true), header);
+                } catch (e) { }
+              }
+              try {
+                const injectedMainNav = document.querySelector('nav.main-nav.dynamic-css, #mainNav.dynamic-css');
+                if (injectedMainNav && injectedMainNav.parentNode) injectedMainNav.parentNode.removeChild(injectedMainNav);
+              } catch (e) {}
+              if (outerContainer) {
+                outerContainer.style.background = '';
+                outerContainer.style.boxShadow = '';
+                outerContainer.style.borderRadius = '';
+                outerContainer.style.padding = '';
+                outerContainer.style.maxWidth = '';
+                outerContainer.style.margin = '';
+              }
+              if (mainContentEl) {
+                mainContentEl.style.background = '';
+                mainContentEl.style.boxShadow = '';
+                mainContentEl.style.borderRadius = '';
+                mainContentEl.style.padding = '';
+              }
+              try {
+                const oldFrame = document.getElementById('singlefile-iframe');
+                if (oldFrame && oldFrame.parentNode) oldFrame.parentNode.removeChild(oldFrame);
+                document.body.style.overflow = '';
+              } catch (e) {}
+            }
+          } catch (e) { }
+
+          if (pageHasFullLayout) {
+            try {
+              const outer = document.querySelector('.container');
+              if (outer) outer.style.display = 'none';
+
+              const existing = document.getElementById('singlefile-iframe');
+              if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+              const iframe = document.createElement('iframe');
+              iframe.id = 'singlefile-iframe';
+              iframe.className = 'dynamic-iframe';
+              iframe.style.position = 'fixed';
+              iframe.style.top = '0';
+              iframe.style.left = '0';
+              iframe.style.width = '100%';
+              iframe.style.height = '100%';
+              iframe.style.border = '0';
+              iframe.style.zIndex = '2147483646';
+              iframe.style.background = 'transparent';
+              iframe.setAttribute('aria-hidden', 'false');
+
+              iframe.src = url;
+
+              document.body.appendChild(iframe);
+              document.body.style.overflow = 'hidden';
+
+              document.title = tempDoc.title || document.title;
+              window.history.replaceState({}, '', '#' + page);
+              window.__singlefile_currentPage = page;
+              setTimeout(() => { window.__singlefile_navigating = false; }, 50);
+              return;
+            } catch (e) { }
+          }
+
+          const moveToBodySelectors = ['.starfield', '.discord-button', '.main-nav', '#mainNav', '.nav-toggle-btn', '#site-overlay', '.particle'];
+          Array.from(tempDoc.body.childNodes).forEach(node => {
+            if (node.nodeType !== 1) return;
+            const el = node;
+            if (el.tagName && el.tagName.toLowerCase() === 'script') return;
+            let moved = false;
+            for (const sel of moveToBodySelectors) {
+              try {
+                if (el.matches && el.matches(sel)) {
+                  if (sel === '.discord-button' || (el.classList && el.classList.contains('discord-button'))) {
+                    try { Array.from(document.querySelectorAll('.discord-button.dynamic-css')).forEach(d => d.remove()); } catch (e) {}
+                    const discord = document.createElement('button');
+                    discord.className = (el.className || '') + ' dynamic-css';
+                    if (el.getAttribute && el.getAttribute('onclick')) discord.setAttribute('onclick', el.getAttribute('onclick'));
+                    try { discord.setAttribute('aria-label', el.getAttribute('aria-label') || 'discord'); } catch (e) {}
+                    const icon = el.querySelector && el.querySelector('i');
+                    if (icon) {
+                      const ic = icon.cloneNode(true);
+                      discord.appendChild(ic);
+                    }
+                    discord.style.background = 'transparent';
+                    discord.style.boxShadow = '0 0 12px rgba(255,0,128,0.6)';
+                    discord.style.border = discord.style.border || '2px solid rgba(255,0,128,0.6)';
+                    discord.style.width = el.style.width || el.getBoundingClientRect && (el.getBoundingClientRect().width + 'px') || '60px';
+                    discord.style.height = el.style.height || el.getBoundingClientRect && (el.getBoundingClientRect().height + 'px') || '60px';
+                    discord.style.borderRadius = '50%';
+                    discord.style.position = el.style.position || 'fixed';
+                    if (el.style.bottom) discord.style.bottom = el.style.bottom;
+                    if (el.style.right) discord.style.right = el.style.right;
+                    document.body.appendChild(discord);
+                    moved = true;
+                    break;
+                  }
+                  if (sel === '.main-nav' || sel === '#mainNav') {
+                    try { Array.from(document.querySelectorAll('.main-nav.dynamic-css, #mainNav.dynamic-css')).forEach(n => n.remove()); } catch (e) {}
+                    const cloned = el.cloneNode(true);
+                    cloned.classList.add('dynamic-css');
+                    document.body.appendChild(cloned);
+                    moved = true;
+                    break;
+                  }
+                  const cloned = el.cloneNode(true);
+                  cloned.classList.add('dynamic-css');
+                  document.body.appendChild(cloned);
+                  moved = true;
+                  break;
+                }
+              } catch (e) { }
+            }
+            if (!moved) {
+              const cloned = el.cloneNode(true);
+              Array.from(cloned.querySelectorAll('script')).forEach(s => s.remove());
+              main.appendChild(cloned);
+            }
+          });
+
+        const headScripts = Array.from(tempDoc.head.querySelectorAll('script'));
+        const bodyScripts = tempDoc.body ? Array.from(tempDoc.body.querySelectorAll('script')) : [];
+
+        (function rewriteBodyAssets(){
+          const main = document.getElementById('main-content');
+          if (!main) return;
+          const resolveAttr = (val) => {
+            if (!val) return val;
+            try {
+              if (val.startsWith('//')) return pageUrlObj.protocol + val;
+              if (val.startsWith('/')) return pageUrlObj.origin + basePathForRoot + val;
+              return new URL(val, url).toString();
+            } catch (e) { return val; }
+          };
+
+          main.querySelectorAll('img, iframe, video, audio, source, embed').forEach(el => {
+            const attrs = ['src', 'data', 'poster'];
+            attrs.forEach(a => {
+              if (el.hasAttribute && el.hasAttribute(a)) {
+                const raw = el.getAttribute(a);
+                if (!raw) return;
+                const resolved = resolveAttr(raw);
+                if (resolved && resolved !== raw) el.setAttribute(a, resolved);
+              }
+            });
+          });
+
+          main.querySelectorAll('img[srcset], source[srcset]').forEach(el => {
+            const ss = el.getAttribute('srcset');
+            if (!ss) return;
+            const parts = ss.split(',').map(p => p.trim()).map(part => {
+              const m = part.match(/^([^\s]+)(\s+.*)?$/);
+              if (!m) return part;
+              const u = m[1], rest = m[2] || '';
+              return resolveAttr(u) + rest;
+            });
+            el.setAttribute('srcset', parts.join(', '));
+          });
+
+          main.querySelectorAll('a[href]').forEach(a => {
+            const h = a.getAttribute('href');
+            if (!h) return;
+            if (h.startsWith('/')) {
+              try { a.setAttribute('href', pageUrlObj.origin + basePathForRoot + h); } catch (e) {}
+            }
+          });
+        })();
+
+        const newTitle = tempDoc.title || 'JamalsGameHub';
+        document.title = newTitle;
+
+        Array.from(document.querySelectorAll('.dynamic-js')).forEach(e => e.remove());
+
+        async function injectScriptElement(spec, opts = {}){
+          return new Promise((resolve) => {
+            const s = document.createElement('script');
+            if (spec.src) { s.src = spec.src; s.async = false; }
+            if (spec.type) s.type = spec.type;
+            if (spec.text) s.textContent = spec.text;
+            s.className = 'dynamic-js';
+            if (spec.integrity) s.integrity = spec.integrity;
+            if (spec.crossOrigin) s.crossOrigin = spec.crossOrigin;
+            s.onload = () => resolve();
+            s.onerror = () => resolve();
+            (opts.appendToHead ? document.head : document.body).appendChild(s);
+            if (!spec.src) resolve();
+          });
+        }
+
+        async function injectScriptsWithCapturedEvents(scriptsArray, appendToHeadDefault = false) {
+          const docHandlers = [];
+          const winHandlers = [];
+          const origDocAdd = Document.prototype.addEventListener;
+          const origWinAdd = Window.prototype.addEventListener;
+
+          Document.prototype.addEventListener = function(type, handler, opts) {
+            if (String(type).toLowerCase() === 'domcontentloaded') {
+              docHandlers.push({ handler, opts });
+              return;
+            }
+            return origDocAdd.call(this, type, handler, opts);
+          };
+          Window.prototype.addEventListener = function(type, handler, opts) {
+            if (String(type).toLowerCase() === 'load') {
+              winHandlers.push({ handler, opts });
+              return;
+            }
+            return origWinAdd.call(this, type, handler, opts);
+          };
+
+          try {
+            for (const sEl of scriptsArray) {
+              if (sEl.src) {
+                const raw = sEl.getAttribute('src');
+                let resolvedSrc;
+                try {
+                  if (raw.startsWith('//')) resolvedSrc = pageUrlObj.protocol + raw;
+                  else if (raw.startsWith('/')) resolvedSrc = pageUrlObj.origin + basePathForRoot + raw;
+                  else resolvedSrc = new URL(raw, url).toString();
+                } catch (e) { resolvedSrc = raw; }
+                await injectScriptElement({ src: resolvedSrc, type: sEl.type || null, integrity: sEl.integrity || null, crossOrigin: sEl.crossOrigin || null }, { appendToHead: appendToHeadDefault });
+              } else if (sEl.textContent && sEl.textContent.trim()) {
+                await injectScriptElement({ text: sEl.textContent, type: sEl.type || null }, { appendToHead: appendToHeadDefault });
+              }
+            }
+          } finally {
+            Document.prototype.addEventListener = origDocAdd;
+            Window.prototype.addEventListener = origWinAdd;
+            try {
+              docHandlers.forEach(h => { try { h.handler.call(document, new Event('DOMContentLoaded')); } catch (e) {} });
+              winHandlers.forEach(h => { try { h.handler.call(window, new Event('load')); } catch (e) {} });
+            } catch (e) { }
+          }
+        }
+
+        await injectScriptsWithCapturedEvents(headScripts, true);
+        await injectScriptsWithCapturedEvents(bodyScripts, false);
+
+        window.history.replaceState({}, '', '#' + page);
+        window.__singlefile_currentPage = page;
+        setTimeout(() => { window.__singlefile_navigating = false; }, 50);
+      } catch (err) {
+        document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Failed to load page: ${page}${triedHtml ? ' or ' + page + '.html' : ''}<br>${err.message}</div>`;
+      }
+    }
+
+    window.addEventListener('hashchange', () => {
+      const page = location.hash.replace('#', '') || 'index.html';
+      if (window.__singlefile_navigating) return;
+      if (window.__singlefile_currentPage && window.__singlefile_currentPage === page) return;
+      if (PAGES.includes(page)) loadPage(page);
+    });
+
+    renderNav();
+    const startPage = location.hash.replace('#', '') || 'index.html';
+    loadPage(PAGES.includes(startPage) ? startPage : 'index.html');
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
